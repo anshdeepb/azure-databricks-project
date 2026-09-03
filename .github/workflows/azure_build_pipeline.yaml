@@ -1,38 +1,38 @@
-trigger:
-  batch: true
-  branches:
-    include:
+name: Databricks Build
+
+on:
+  push:
+    branches:
       - '*'
 
-pool:
-  vmImage: ubuntu-22.04
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-steps:
-- task: UsePythonVersion@0
-  displayName: 'Use Python 3.10'
-  inputs:
-    versionSpec: 3.10
+      - name: Use Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-- script: |
-    pip install pytest requests setuptools wheel
-  displayName: 'Load Python dependencies'
+      - name: Load Python dependencies
+        run: pip install pytest requests setuptools wheel
 
-- checkout: self
-  persistCredentials: true
-  clean: true
+      - name: Get Changes
+        run: |
+          mkdir -p build_output
+          cp ${{ github.workspace }}/*.* build_output/
 
-- script: |    
-    cp $(Build.Repository.LocalPath)/*.* $(Build.BinariesDirectory)/
-  displayName: 'Get Changes'
+      - name: Archive Files
+        run: |
+          mkdir -p artifact_staging
+          cd build_output
+          zip -r ../artifact_staging/${{ github.run_id }}.zip .
 
-- task: ArchiveFiles@2
-  inputs:
-    rootFolderOrFile: '$(Build.BinariesDirectory)'
-    includeRootFolder: false
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
-    replaceExistingArchive: true
-
-- task: PublishBuildArtifacts@1
-  inputs:
-    ArtifactName: 'DatabricksBuild'
+      - name: Publish Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DatabricksBuild
+          path: artifact_staging/${{ github.run_id }}.zip
